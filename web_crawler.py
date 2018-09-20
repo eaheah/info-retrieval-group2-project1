@@ -284,14 +284,14 @@ class WebCrawler:
         '''
         For jupyter notebook, displays a table of all files in repo
         '''
-        html = '<table><tr><td>File</td><td>Status</td><td># Links</td><td># Images</td></tr>'
+        html = '<table><tr><td>Live URL</td><td>File</td><td>Status</td><td># Links</td><td># Images</td></tr>'
         for key in self.repo_files:
             status = self.repo_files[key]['status']
             filename = self.repo_files[key]['filename']
             filename = f'repository/{filename}'
             links = self.repo_files[key]['links']
             images = self.repo_files[key]['images']
-            html += f'<tr><td><a href={filename}>{key}</a></td><td>{status}</td><td>{links}</td><td>{images}</td></tr>'
+            html += f'<tr><td><a href={key}>{key}<td><a href={filename}>{key}</a></td><td>{status}</td><td>{links}</td><td>{images}</td></tr>'
         html += '</table>'
         display(HTML(html))
 
