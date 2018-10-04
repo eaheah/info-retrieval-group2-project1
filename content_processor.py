@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import os
+import shutil
 from random import random
 
 def tags_below_index(lst, x):
@@ -42,32 +43,29 @@ def neighbor(lst, i, j):
         new_j = 1
     return new_i, new_j
 
-def acceptance_probability(old_score, new_score, T):
-    return
-    
-
 class ContentProcessor:
     def process_repository(self, src_repo='repository'):
         self.src_repo = src_repo
-        initialize_dst_repo()
+        self.initialize_dst_repo()
         for file in os.listdir(self.src_repo):
-            process_file(file)
-    
+            self.process_file(os.path.join(self.src_repo, file))
+
     def process_file(self, filename):
         f = open(filename)
         soup = BeautifulSoup(f, 'html.parser')
-        bool_tag_list = clean_html(soup)
+        bool_tag_list = self.clean_html(soup)
         # use simulated anealling to optimize indices
-        i, j = anneal(bool_tag_list)
-        main_content = extract_content(soup, bool_tag_list, i, j)
+        i, j = self.anneal(bool_tag_list)
+        main_content = self.extract_content(soup, bool_tag_list, i, j)
         # save content to (.txt?) file
-        
+
     def clean_html(self, soup):
-        ''' should return list of for optimization problem 
-            1 when tag is encountered and 0 for non tag    
-            some tags need to be ignored when they don't matter 
+        ''' should return list of for optimization problem
+            1 when tag is encountered and 0 for non tag
+            some tags need to be ignored when they don't matter
         '''
-        
+        return []
+
     def anneal(self, bool_tag_list):
         if len(bool_tag_list) <= 1:
             # maybe throw exception here
@@ -93,7 +91,7 @@ class ContentProcessor:
                 it += 1
             T = T * alpha
         return i, j
-    
+
     def initialize_dst_repo(self):
         '''
         If repository exists from previous run, it is deleted
@@ -103,6 +101,8 @@ class ContentProcessor:
         if os.path.isdir(self.dst_repo):
             shutil.rmtree(self.dst_repo)
         os.mkdir(self.dst_repo)
-        
-        
-    
+
+    def extract_content(self, soup, bool_tag_list, i, j):
+        pass
+
+
