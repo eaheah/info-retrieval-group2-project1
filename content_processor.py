@@ -28,6 +28,23 @@ def lst_score(lst, i, j):
 
 def neighbor(lst, i, j):
     # find randomized neighbor
+    max_move_dist = round(len(lst) * .20)
+    new_i += i + (2*max_move_dist*random()) - max_move_dist
+    new_j += j + (2*max_move_dist*random()) - max_move_dist
+    if new_i < 0:
+        new_i = 0
+    if new_j >= len(lst):
+        new_j = len(lst) - 1
+    if new_i >= new_j && new_j > 0:
+        new_i = new_j - 1
+    else:
+        new_i = 0
+        new_j = 1
+    return new_i, new_j
+
+def acceptance_probability(old_score, new_score, T):
+    return
+    
 
 class ContentProcessor:
     def process_repository(self, src_repo='repository'):
@@ -65,10 +82,10 @@ class ContentProcessor:
         alpha = 0.9
         while T > T_min:
             it = 0
-            while it < 1:
+            while it < 50:
                 new_i, new_j = neighbor(bool_tag_list, i, j)
                 new_score = lst_score(bool_tag_list, new_i, new_j)
-                ap = acceptance_probability(old_score, new_score, T)
+                ap = exp((old_score - new_score) / T)
                 if ap > random():
                     i = new_i
                     j = new_j
