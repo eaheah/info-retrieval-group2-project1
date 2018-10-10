@@ -51,13 +51,14 @@ class ContentProcessor:
             self.process_file(os.path.join(self.src_repo, file))
 
     def process_file(self, filename):
-        f = open(filename)
-        soup = BeautifulSoup(f, 'html.parser')
-        bool_tag_list = self.clean_html(soup)
-        # use simulated anealling to optimize indices
-        i, j = self.anneal(bool_tag_list)
-        main_content = self.extract_content(soup, bool_tag_list, i, j)
-        # save content to (.txt?) file
+        with open(filename, 'r') as f:
+            # f = open(filename) # file never gets closed otherwise
+            soup = BeautifulSoup(f, 'html.parser')
+            bool_tag_list = self.clean_html(soup)
+            # use simulated anealling to optimize indices
+            i, j = self.anneal(bool_tag_list)
+            main_content = self.extract_content(soup, bool_tag_list, i, j)
+            # save content to (.txt?) file
 
     def clean_html(self, soup):
         ''' should return list of for optimization problem
