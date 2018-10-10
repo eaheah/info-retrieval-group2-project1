@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from queue import Queue
 from IPython.display import display, HTML
+import time
 
 class CSVInputError(Exception):
     pass
@@ -45,6 +46,7 @@ class WebCrawler:
         Gets input from csv file
         Checks that input is correct length
         '''
+        st = time.time()
         with open(csv_path, newline='') as csvfile:
             reader = csv.reader(csvfile, delimiter=',')
 
@@ -57,7 +59,8 @@ class WebCrawler:
                 domain = None
             elif len(file_input) == 3:
                 seed, num_pages, domain = file_input
-
+            e = time.time() - st
+            # print(f'get_csv_input took {e}')
             return seed, num_pages, domain
 
     def get_kwarg_input(self, kwargs):
@@ -65,9 +68,12 @@ class WebCrawler:
         Gets input from kwargs
         Checks for all applicable inputs
         '''
+        st = time.time()
         for kw in ['seed', 'num_pages', 'domain']:
             if kw not in kwargs:
                 raise(InputError('kwargs must include seed, num_pages, and domain'))
+        e = time.time() - st
+        # print(f'get_kwarg_input took {e}')
         return kwargs['seed'], kwargs['num_pages'], kwargs['domain']
 
     def validate_input(self, seed, num_pages, domain):
@@ -76,6 +82,7 @@ class WebCrawler:
             that num_pages is int (and coerces it),
             that seed is a valid url
         '''
+        st = time.time()
         if not isinstance(seed, str):
             raise InputError('seed input must be a string')
         if not isinstance(domain, str):
@@ -88,7 +95,8 @@ class WebCrawler:
         seed_parse = urlparse(seed)
         if not (seed_parse.scheme and seed_parse.netloc):
             raise InputError("Seed input is invalid url")
-
+        e = time.time() - st
+        # print(f'validate_input took {e}')
         return num_pages
 
     def initialize_repo(self):
@@ -96,16 +104,22 @@ class WebCrawler:
         If repository exists from previous run, it is deleted
         Creates repository
         '''
+        st = time.time()
         self.repo = 'repository'
         if os.path.isdir(self.repo):
             shutil.rmtree(self.repo)
         os.mkdir(self.repo)
+        e = time.time() - st
+        # print(f'initialize_repo took {e}')
 
     def initialize_seed(self):
         '''
         Calls process url on seed url
         '''
+        st = time.time()
         self.process_url(self.seed)
+        e = time.time() - st
+        # print(f'initialize_seed took {e}')
 
     def process_url(self, url):
         '''
@@ -114,29 +128,34 @@ class WebCrawler:
         Gets url and adds file to repository
         Finds links from file and adds them to main_link_queue
         '''
+        st = time.time()
         crawl_delay = self.check_for_robot(url)
         parsed_url = urlparse(url)
         add_to_repo = self.check_domain(parsed_url.netloc)
         if add_to_repo:
             time.sleep(crawl_delay)
-            self.add_file_to_repo(url)
-            self.find_links(url)
+            added = self.add_file_to_repo(url)
+            if added:
+                self.find_links(url)
+        e = time.time() - st
+        # print(f'process_url took {e}')
 
     def process_main_link_queue(self):
         '''
         process entire main_link_queue into a dictionary organized by domain (domain_dict)
         Per domain, calls process_url on each url
         Recurses if there are still urls in main_link_queue and the file_count has not been met
-        TODO: domain check so we don't bother processing other domains
         '''
+
+        st = time.time()
         while bool(self.main_link_queue):
             link = self.main_link_queue.pop()
 
             parsed_link = urlparse(link)
-            if parsed_link.netloc not in self.domain_dict and link not in self.repo_files:
+            if parsed_link.netloc not in self.domain_dict and link not in self.repo_files and self.check_domain(parsed_link.netloc):
                 self.domain_dict[parsed_link.netloc] = set()
                 self.domain_dict[parsed_link.netloc].add(link)
-            elif parsed_link.netloc in self.domain_dict and link not in self.repo_files:
+            elif parsed_link.netloc in self.domain_dict and link not in self.repo_files and self.check_domain(parsed_link.netloc):
                 self.domain_dict[parsed_link.netloc].add(link)
 
         # Threading would be awesome here
@@ -149,6 +168,8 @@ class WebCrawler:
 
         if bool(self.main_link_queue) and self.check_file_count():
             self.process_main_link_queue()
+        e = time.time() - st
+        # print(f'process_main_link_queue took {e}')
 
     def check_for_robot(self, url):
         '''
@@ -162,12 +183,16 @@ class WebCrawler:
         TODO: save crawl_delay for visited robots
         TODO: follow sub sitemaps to valid urls (case: reddit)
         '''
+        st = time.time()
         parsed_url = urlparse(url)
         base_url = f'{parsed_url.scheme}://{parsed_url.netloc}'
-        crawl_delay = 10
+        crawl_delay = 1
         if base_url not in self.visited_robots:
             robots = f'{base_url}/robots.txt'
+            rst = time.time()
             r = requests.get(robots)
+            e = time.time() - rst
+            # print(f'request (in check for robot) took {e}')
             tmp = {}
             text = [line.decode('utf-8') for line in r.iter_lines()]
 
@@ -196,30 +221,35 @@ class WebCrawler:
                 elif 'Crawl-delay' in line:
                     user_agent['Crawl-delay'] = int(line.split(' ')[1])
 
-            sitemaps = [key.split(' ')[1] for key in tmp.keys() if 'Sitemap' in key]
-            sitemap_urls = []
-            for sitemap in sitemaps:
-                sr = requests.get(sitemap)
-                time.sleep(1)
-                sr.encoding = 'utf-8'
-                soup = BeautifulSoup(sr.text, 'html5lib')
-                locs = soup.find_all("loc")
-                sitemap_urls += [t.text for t in locs]
+            # sitemaps = [key.split(' ')[1] for key in tmp.keys() if 'Sitemap' in key]
+            # sitemap_urls = []
+            # sst = time.time()
+            # for sitemap in sitemaps:
+            #     sr = requests.get(sitemap)
+            #     time.sleep(1)
+            #     sr.encoding = 'utf-8'
+            #     soup = BeautifulSoup(sr.text, 'html5lib')
+            #     locs = soup.find_all("loc")
+            #     sitemap_urls += [t.text for t in locs]
+            # e = time.time() - sst
+            # print(f'sitemaps took {e}')
 
-            sitemap_urls = set(sitemap_urls)
+            # sitemap_urls = set(sitemap_urls)
 
-            for disallowed in user_agent['Disallow']:
-                filtered = fnmatch.filter(sitemap_urls, disallowed)
-                sitemap_urls = sitemap_urls - set(filtered)
+            # for disallowed in user_agent['Disallow']:
+            #     filtered = fnmatch.filter(sitemap_urls, disallowed)
+            #     sitemap_urls = sitemap_urls - set(filtered)
 
-            self.main_link_queue |= sitemap_urls
+            # self.main_link_queue |= sitemap_urls
 
             self.visited_robots.add(base_url)
 
             if user_agent['Crawl-delay']:
                 crawl_delay = user_agent['Crawl-delay']
 
-            time.sleep(5)
+            time.sleep(1)
+        e = time.time() - st
+        # print(f'check_for_robot took {e}')
         return crawl_delay
 
     def check_domain(self, domain):
@@ -238,18 +268,29 @@ class WebCrawler:
         Saves file in repository
         TODO: error handling for request and file save
         '''
+        st = time.time()
         if url not in self.repo_files:
             r = requests.get(url)
-            self.file_count += 1
-            self.repo_files[url] = {'filename': f'{self.file_count}.html', 'status': r.status_code}
-            with open(os.path.join(self.repo, self.repo_files[url]['filename']), 'wb') as f:
-                f.write(r.content)
+            # print(dir(r))
+            # print(r.headers)
+            # print(r.apparent_encoding)
+            # print()
+            if 'text/html' in r.headers['Content-Type']:
+                self.file_count += 1
+                self.repo_files[url] = {'filename': f'{self.file_count}.html', 'status': r.status_code}
+                with open(os.path.join(self.repo, self.repo_files[url]['filename']), 'wb') as f:
+                    f.write(r.content)
+                return True
+        e = time.time() - st
+        # print(f'add_file_to_repo took {e}')
+        return False
 
     def find_links(self, url):
         '''
         Opens a url's file and finds all links within, and all images
         Saves links to main_link_queue and images to url's repo_files entry
         '''
+        st = time.time()
         with open(os.path.join(self.repo, self.repo_files[url]['filename']), 'r', encoding='utf-8') as f:
             soup = BeautifulSoup(f, 'html.parser')
             links = soup.find_all('a')
@@ -269,31 +310,58 @@ class WebCrawler:
 
             images = soup.find_all('img')
             self.repo_files[url]['images'] = len(images)
+        e = time.time() - st
+        # print(f'find_links took {e}')
 
     def check_file_count(self):
         '''
         Checks if added files is equal to or greater than the input num_pages
         Displays the files if so and returns a False boolean to indicate that crawling should stop
         '''
+        st = time.time()
         if self.file_count >= self.num_pages:
             self.display()
+            self.output()
+            e = time.time() - st
+            # print(f'check_file_count took {e}')
             return False
+        e = time.time() - st
+        # print(f'check_file_count took {e}')
         return True
 
     def display(self):
         '''
         For jupyter notebook, displays a table of all files in repo
         '''
+        st = time.time()
         html = '<table><tr><td>Live URL</td><td>File</td><td>Status</td><td># Links</td><td># Images</td></tr>'
         for key in self.repo_files:
+            skey = key.rstrip('/')
             status = self.repo_files[key]['status']
             filename = self.repo_files[key]['filename']
             filename = f'repository/{filename}'
             links = self.repo_files[key]['links']
             images = self.repo_files[key]['images']
-            html += f'<tr><td><a href={key}>{key}<td><a href={filename}>{key}</a></td><td>{status}</td><td>{links}</td><td>{images}</td></tr>'
+            html += f'<tr><td><a href={skey}>{skey}<td><a href={filename}>{key}</a></td><td>{status}</td><td>{links}</td><td>{images}</td></tr>'
         html += '</table>'
         display(HTML(html))
+        e = time.time() - st
+        # print(f'display took {e}')
+
+    def output(self):
+
+        html = '<html><body><table><tr><td>Live URL</td><td>File</td><td>Status</td><td># Links</td><td># Images</td></tr>'
+        for key in self.repo_files:
+            skey = key.rstrip('/')
+            status = self.repo_files[key]['status']
+            filename = self.repo_files[key]['filename']
+            filename = f'repository/{filename}'
+            links = self.repo_files[key]['links']
+            images = self.repo_files[key]['images']
+            html += f'<tr><td><a href={skey}>{skey}<td><a href={filename}>{key}</a></td><td>{status}</td><td>{links}</td><td>{images}</td></tr>'
+        html += '</table></body></html>'
+        with open('report.html', 'w') as f:
+            f.write(html)
 
 
 
