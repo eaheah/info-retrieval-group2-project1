@@ -44,20 +44,27 @@ def neighbor(lst, i, j):
     return new_i, new_j
 
 class ContentProcessor:
+
     def process_repository(self, src_repo='repository'):
         self.src_repo = src_repo
         self.initialize_dst_repo()
         for file in os.listdir(self.src_repo):
-            self.process_file(os.path.join(self.src_repo, file))
+            print(file)
+            self.process_file(os.path.join(self.src_repo, file), file)
 
-    def process_file(self, filename):
+    def process_file(self, filename, fname):
         with open(filename, 'r') as f:
             # f = open(filename) # file never gets closed otherwise
             soup = BeautifulSoup(f, 'html.parser')
+            #print(soup.body.prettify())
             bool_tag_list = self.clean_html(soup)
+            with open (os.path.join('processed', fname), 'w') as f2:
+                f2.write(bool_tag_list)
             # use simulated anealling to optimize indices
-            i, j = self.anneal(bool_tag_list)
-            main_content = self.extract_content(soup, bool_tag_list, i, j)
+
+            #i, j = self.anneal(bool_tag_list)
+            #main_content = self.extract_content(soup, bool_tag_list, i, j)
+
             # save content to (.txt?) file
 
     def clean_html(self, soup):
@@ -65,7 +72,14 @@ class ContentProcessor:
             1 when tag is encountered and 0 for non tag
             some tags need to be ignored when they don't matter
         '''
-        return []
+        new_body = ""
+        new_body += str(soup.title)
+        #new_body.append("<body>")
+        #for child in soup.body.children:
+            #pass
+        new_body += str(soup.body)
+
+        return new_body
 
     def anneal(self, bool_tag_list):
         if len(bool_tag_list) <= 1:
@@ -105,5 +119,3 @@ class ContentProcessor:
 
     def extract_content(self, soup, bool_tag_list, i, j):
         pass
-
-

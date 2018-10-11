@@ -36,12 +36,12 @@ class Analyze:
 	def plot_graph(self, title):
 		x = np.log(np.array(self.ranks))
 		y = np.log(np.array(self.frequencies))
-        
+
         # intercept (b) and slope (m) for best fit line of scatter plot
-        b, m = polyfit(x, y, 1)
+		b, m = polyfit(x, y, 1)
 
 		plt.plot(x,y,'.')
-        plt.plot(x,b+m*x,'-')
+		plt.plot(x,b+m*x,'-')
 		plt.title(title)
 		plt.xlabel('log(rank)')
 		plt.ylabel('log(frequency)')
@@ -58,6 +58,3 @@ class Analyze:
 		table.set_fontsize(28)
 		table.scale(2, 2)
 		fig.show()
-
-
-
