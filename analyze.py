@@ -4,6 +4,7 @@ import itertools
 from collections import Counter
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.polynomial.polynomial import polyfit
 
 class Analyze:
 	def __init__(self):
@@ -14,7 +15,7 @@ class Analyze:
 	def process_text(self):
 		for filename in os.listdir(self.repo):
 			with open(os.path.join(self.repo, filename), 'r') as f:
-				text = f.read()
+				text = f.read().lower()
 				word_list = re.findall(r'\w+', text)
 				self.counter += Counter(word_list)
 
@@ -35,8 +36,12 @@ class Analyze:
 	def plot_graph(self, title):
 		x = np.log(np.array(self.ranks))
 		y = np.log(np.array(self.frequencies))
+        
+        # intercept (b) and slope (m) for best fit line of scatter plot
+        b, m = polyfit(x, y, 1)
 
-		plt.plot(x,y)
+		plt.plot(x,y,'.')
+        plt.plot(x,b+m*x,'-')
 		plt.title(title)
 		plt.xlabel('log(rank)')
 		plt.ylabel('log(frequency)')
