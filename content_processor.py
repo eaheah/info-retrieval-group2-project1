@@ -36,7 +36,7 @@ def neighbor(lst, i, j):
         new_i = 0
     if new_j >= len(lst):
         new_j = len(lst) - 1
-    if new_i >= new_j && new_j > 0:
+    if new_i >= new_j and new_j > 0:
         new_i = new_j - 1
     else:
         new_i = 0
