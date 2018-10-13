@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import os
 import shutil
+import re
 from random import random
 
 def tags_below_index(lst, x):
@@ -49,63 +50,70 @@ class ContentProcessor:
         self.src_repo = src_repo
         self.initialize_dst_repo()
         for file in os.listdir(self.src_repo):
-            print(file)
             self.process_file(os.path.join(self.src_repo, file), file)
+
+    def remove_attrs(self, soup):
+        whitelist = ['a','img']
+        attrs_whitelist = ['id','src','href']
+        for tag in soup.find_all(True):
+            if tag.name not in whitelist:
+                attrs = dict(tag.attrs)
+                for attr in attrs:
+                    if attr not in ['id']:
+                        del tag.attrs[attr]
+            else:
+                attrs = dict(tag.attrs)
+                for attr in attrs:
+                    if attr not in attrs_whitelist:
+                        del tag.attrs[attr]
+        return soup
+
+    def remove_tags(self, soup):
+        blacklist = ['script','nav','aside','video','footer','form','input','noscript']
+        whitelist = []
+        for tag in soup.find_all(True):
+            if tag.name in blacklist:
+                tag.extract()
+        return soup
+
+    def remove_div_extra(self, soup):
+        div_content = soup.body.find('div', id=re.compile(".*(content|main).*"))
+        if div_content is not None:
+            for pre_sibling in div_content.previous_siblings:
+                if pre_sibling.name == 'div':
+                    pre_sibling.attrs['id'] = 'delete'
+            for next_sibling in div_content.next_siblings:
+                if next_sibling.name == 'div':
+                    next_sibling.attrs['id'] = 'delete'
+
+        for tag in soup.body.find_all('div', id='delete'):
+            tag.extract()
+
+        return soup
 
     def process_file(self, filename, fname):
         with open(filename, 'r') as f:
             # f = open(filename) # file never gets closed otherwise
             soup = BeautifulSoup(f, 'html.parser')
-            #print(soup.body.prettify())
-            bool_tag_list = self.clean_html(soup)
+            new_content = self.clean_html(soup)
+            clean_content = ''
+            for string_soup in new_content.stripped_strings:
+                clean_content += string_soup + " "
             with open (os.path.join('processed', fname), 'w') as f2:
-                f2.write(bool_tag_list)
-            # use simulated anealling to optimize indices
-
-            #i, j = self.anneal(bool_tag_list)
-            #main_content = self.extract_content(soup, bool_tag_list, i, j)
-
-            # save content to (.txt?) file
+                f2.write(clean_content)
+                #f2.write(str(new_content))
 
     def clean_html(self, soup):
-        ''' should return list of for optimization problem
-            1 when tag is encountered and 0 for non tag
-            some tags need to be ignored when they don't matter
-        '''
+
         new_body = ""
+        soup = self.remove_attrs(soup)
+        soup = self.remove_tags(soup)
         new_body += str(soup.title)
-        #new_body.append("<body>")
-        #for child in soup.body.children:
-            #pass
         new_body += str(soup.body)
+        new_body = BeautifulSoup(new_body)
+        new_body = self.remove_div_extra(new_body)
 
         return new_body
-
-    def anneal(self, bool_tag_list):
-        if len(bool_tag_list) <= 1:
-            # maybe throw exception here
-            return None, None
-        i = round(random() * .5 * (len(bool_tag_list) - 1))
-        j = round((1 - random() * .5) * (len(bool_tag_list) - 1))
-        if i == j:
-            i -= 1
-        old_score = lst_score(bool_tag_list, i, j)
-        T = 1.0
-        T_min = 0.00001
-        alpha = 0.9
-        while T > T_min:
-            it = 0
-            while it < 50:
-                new_i, new_j = neighbor(bool_tag_list, i, j)
-                new_score = lst_score(bool_tag_list, new_i, new_j)
-                ap = exp((old_score - new_score) / T)
-                if ap > random():
-                    i = new_i
-                    j = new_j
-                    old_cost = new_cost
-                it += 1
-            T = T * alpha
-        return i, j
 
     def initialize_dst_repo(self):
         '''
@@ -116,6 +124,3 @@ class ContentProcessor:
         if os.path.isdir(self.dst_repo):
             shutil.rmtree(self.dst_repo)
         os.mkdir(self.dst_repo)
-
-    def extract_content(self, soup, bool_tag_list, i, j):
-        pass
