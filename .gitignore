@@ -105,4 +105,5 @@ venv.bak/
 
 repository/
 processed/
+html_processed/
 report.html

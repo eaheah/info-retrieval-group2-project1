@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup
 from queue import Queue
 from IPython.display import display, HTML
 import time
+from multiprocessing.pool import ThreadPool
+import threading
 
 class CSVInputError(Exception):
     pass
@@ -23,7 +25,8 @@ class WebCrawler:
         with kwargs
     Params: seed, num_pages, domain
     '''
-    def __init__(self, csv_path=None, **kwargs):
+    def __init__(self, csv_path=None, threaded=False, **kwargs):
+        self.threaded = threaded
         if csv_path:
             seed, num_pages, domain = self.get_csv_input(csv_path)
         else:
@@ -140,6 +143,15 @@ class WebCrawler:
         e = time.time() - st
         # print(f'process_url took {e}')
 
+    def worker(self, domain):
+
+        for url in self.domain_dict[domain]:
+            # print('{}: {}'.format(threading.current_thread().name, url))
+            if self.check_file_count():
+                self.process_url(url)
+            else:
+                return
+
     def process_main_link_queue(self):
         '''
         process entire main_link_queue into a dictionary organized by domain (domain_dict)
@@ -158,13 +170,22 @@ class WebCrawler:
             elif parsed_link.netloc in self.domain_dict and link not in self.repo_files and self.check_domain(parsed_link.netloc):
                 self.domain_dict[parsed_link.netloc].add(link)
 
-        # Threading would be awesome here
-        for domain in self.domain_dict:
-            for url in self.domain_dict[domain]:
-                if self.check_file_count():
-                    self.process_url(url)
-                else:
-                    return
+        if self.threaded:
+
+            pool = ThreadPool(8)
+
+            pool.map(self.worker, (self.domain_dict.keys()))
+
+            pool.close()
+            pool.join()
+
+        else:
+            for domain in self.domain_dict:
+                for url in self.domain_dict[domain]:
+                    if self.check_file_count():
+                        self.process_url(url)
+                    else:
+                        return
 
         if bool(self.main_link_queue) and self.check_file_count():
             self.process_main_link_queue()
@@ -186,7 +207,7 @@ class WebCrawler:
         st = time.time()
         parsed_url = urlparse(url)
         base_url = f'{parsed_url.scheme}://{parsed_url.netloc}'
-        crawl_delay = 1
+        crawl_delay = .5
         if base_url not in self.visited_robots:
             robots = f'{base_url}/robots.txt'
             rst = time.time()
@@ -205,51 +226,53 @@ class WebCrawler:
 
             # print(tmp)
 
-            user_line = tmp['user-agent: *']
-            others = sorted(list(set(tmp.values()) - set([user_line])))
-            end_user = others[0] if others else None
+            try:
+                user_line = tmp['user-agent: *']
+                others = sorted(list(set(tmp.values()) - set([user_line])))
+                end_user = others[0] if others else None
 
-            user_agent = {'Disallow': [], 'Crawl-delay': None}
-            for i,line in enumerate(text):
-                if i < user_line:
-                    pass
-                elif i > end_user:
-                    pass
-                elif 'Disallow' in line:
-                    ext = line.split(' ')[1]
-                    user_agent['Disallow'].append(f'{base_url}{ext}')
-                elif 'Crawl-delay' in line:
-                    user_agent['Crawl-delay'] = int(line.split(' ')[1])
+                user_agent = {'Disallow': [], 'Crawl-delay': None}
+                for i,line in enumerate(text):
+                    if i < user_line:
+                        pass
+                    elif i > end_user:
+                        pass
+                    elif 'Disallow' in line:
+                        ext = line.split(' ')[1]
+                        user_agent['Disallow'].append(f'{base_url}{ext}')
+                    elif 'Crawl-delay' in line:
+                        user_agent['Crawl-delay'] = int(line.split(' ')[1])
 
-            # sitemaps = [key.split(' ')[1] for key in tmp.keys() if 'Sitemap' in key]
-            # sitemap_urls = []
-            # sst = time.time()
-            # for sitemap in sitemaps:
-            #     sr = requests.get(sitemap)
-            #     time.sleep(1)
-            #     sr.encoding = 'utf-8'
-            #     soup = BeautifulSoup(sr.text, 'html5lib')
-            #     locs = soup.find_all("loc")
-            #     sitemap_urls += [t.text for t in locs]
-            # e = time.time() - sst
-            # print(f'sitemaps took {e}')
+                # sitemaps = [key.split(' ')[1] for key in tmp.keys() if 'Sitemap' in key]
+                # sitemap_urls = []
+                # sst = time.time()
+                # for sitemap in sitemaps:
+                #     sr = requests.get(sitemap)
+                #     time.sleep(1)
+                #     sr.encoding = 'utf-8'
+                #     soup = BeautifulSoup(sr.text, 'html5lib')
+                #     locs = soup.find_all("loc")
+                #     sitemap_urls += [t.text for t in locs]
+                # e = time.time() - sst
+                # print(f'sitemaps took {e}')
 
-            # sitemap_urls = set(sitemap_urls)
+                # sitemap_urls = set(sitemap_urls)
 
-            # for disallowed in user_agent['Disallow']:
-            #     filtered = fnmatch.filter(sitemap_urls, disallowed)
-            #     sitemap_urls = sitemap_urls - set(filtered)
+                # for disallowed in user_agent['Disallow']:
+                #     filtered = fnmatch.filter(sitemap_urls, disallowed)
+                #     sitemap_urls = sitemap_urls - set(filtered)
 
-            # self.main_link_queue |= sitemap_urls
+                # self.main_link_queue |= sitemap_urls
 
-            self.visited_robots.add(base_url)
+                self.visited_robots.add(base_url)
 
-            if user_agent['Crawl-delay']:
-                crawl_delay = user_agent['Crawl-delay']
+                if user_agent['Crawl-delay']:
+                    crawl_delay = user_agent['Crawl-delay']
 
-            time.sleep(1)
-        e = time.time() - st
-        # print(f'check_for_robot took {e}')
+                time.sleep(.5)
+            except:
+                pass
+
         return crawl_delay
 
     def check_domain(self, domain):
@@ -262,6 +285,12 @@ class WebCrawler:
             return domain == self.domain
         return True
 
+    def check_ext(self, url):
+        s = url.split('.')
+        if s:
+            return s[-1] not in ['mp4', 'jpg', 'png']
+        return False
+
     def add_file_to_repo(self, url):
         '''
         Gets the url and saves filename and status in repo_files
@@ -269,7 +298,7 @@ class WebCrawler:
         TODO: error handling for request and file save
         '''
         st = time.time()
-        if url not in self.repo_files:
+        if url not in self.repo_files and self.check_ext(url):
             r = requests.get(url)
             # print(dir(r))
             # print(r.headers)
