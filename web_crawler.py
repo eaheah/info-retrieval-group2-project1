@@ -147,7 +147,7 @@ class WebCrawler:
 
         for url in self.domain_dict[domain]:
             # print('{}: {}'.format(threading.current_thread().name, url))
-            if self.check_file_count():
+            if self.check_file_count_no_display():
                 self.process_url(url)
             else:
                 return
@@ -178,6 +178,7 @@ class WebCrawler:
 
             pool.close()
             pool.join()
+
 
         else:
             for domain in self.domain_dict:
@@ -341,6 +342,11 @@ class WebCrawler:
             self.repo_files[url]['images'] = len(images)
         e = time.time() - st
         # print(f'find_links took {e}')
+
+    def check_file_count_no_display(self):
+        if self.file_count >= self.num_pages:
+            return False
+        return True
 
     def check_file_count(self):
         '''
