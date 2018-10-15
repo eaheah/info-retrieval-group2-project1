@@ -304,7 +304,7 @@ class WebCrawler:
             # print(r.headers)
             # print(r.apparent_encoding)
             # print()
-            if 'text/html' in r.headers['Content-Type']:
+            if 'Content-Type' in r.headers and'text/html' in r.headers['Content-Type']:
                 self.file_count += 1
                 self.repo_files[url] = {'filename': f'{self.file_count}.html', 'status': r.status_code}
                 with open(os.path.join(self.repo, self.repo_files[url]['filename']), 'wb') as f:
