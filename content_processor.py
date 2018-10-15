@@ -49,6 +49,7 @@ class ContentProcessor:
     def process_repository(self, src_repo='repository'):
         self.src_repo = src_repo
         self.initialize_dst_repo()
+        self.initialize_dst_html_repo()
         for file in os.listdir(self.src_repo):
             self.process_file(os.path.join(self.src_repo, file), file)
 
@@ -96,12 +97,15 @@ class ContentProcessor:
             # f = open(filename) # file never gets closed otherwise
             soup = BeautifulSoup(f, 'html.parser')
             new_content = self.clean_html(soup)
+
+            with open (os.path.join('html_processed', fname), 'w') as f2:
+                f2.write(str(new_content))
+
             clean_content = ''
             for string_soup in new_content.stripped_strings:
                 clean_content += string_soup + " "
-            with open (os.path.join('processed', fname), 'w') as f2:
-                f2.write(clean_content)
-                #f2.write(str(new_content))
+            with open (os.path.join('processed', fname), 'w') as f3:
+                f3.write(clean_content)
 
     def clean_html(self, soup):
 
@@ -121,6 +125,16 @@ class ContentProcessor:
         Creates repository
         '''
         self.dst_repo = 'processed'
+        if os.path.isdir(self.dst_repo):
+            shutil.rmtree(self.dst_repo)
+        os.mkdir(self.dst_repo)
+
+    def initialize_dst_html_repo(self):
+        '''
+        If repository exists from previous run, it is deleted
+        Creates repository
+        '''
+        self.dst_repo = 'html_processed'
         if os.path.isdir(self.dst_repo):
             shutil.rmtree(self.dst_repo)
         os.mkdir(self.dst_repo)
